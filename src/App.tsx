@@ -22,6 +22,8 @@ import { CuttingOptimizer } from './components/CuttingOptimizer';
 import { AuditAlerts } from './components/AuditAlerts';
 import { BarModal } from './components/BarModal';
 import { MemberWizardsModal } from './components/MemberWizardsModal';
+import { STANDARD_OPTIONS } from './data/codeProfiles';
+import type { DesignStandard } from './types/bbs';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { ShapeInspectorModal } from './components/ShapeInspectorModal';
 import { PrintReport } from './components/PrintReport';
@@ -223,6 +225,7 @@ export default function App() {
     setProject(cleanProj);
     setSelectedStructureFilter({});
     showToast('Created new clean BBS project');
+    setIsSettingsOpen(true);
   };
 
   // Preset Switcher (optional examples)
@@ -692,9 +695,17 @@ export default function App() {
                 <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                   REBAR-PRO BBS
                 </h1>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800/60">
-                  {project.metadata.standard}
-                </span>
+                <select
+                  value={project.metadata.standard}
+                  onChange={(e) => handleUpdateMetadata({ standard: e.target.value as DesignStandard })}
+                  title="Design standard (recalculates all bars)"
+                  aria-label="Design standard"
+                  className="px-1 py-0.5 rounded text-[10px] font-mono font-semibold bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800/60 cursor-pointer max-w-35"
+                >
+                  {STANDARD_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.value}</option>
+                  ))}
+                </select>
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 truncate max-w-[calc(100vw-5rem)] md:max-w-md">
                 <span className="truncate">{project.metadata.projectTitle}</span>

@@ -314,7 +314,7 @@ export const MemberWizardsModal: React.FC<MemberWizardsModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Dynamic Structural Member BBS Wizard</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400">Parametric rebar generation adhering to IS 456, SP 34, BS 8666 & IRC:112</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Parametric rebar generation using the project design standard (IS, BS, IRC, ACI, AS)</p>
             </div>
           </div>
           <button

@@ -372,7 +372,7 @@ export const BbsTable: React.FC<BbsTableProps> = ({
                 2. Add Custom Bar Mark
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                Detail straight, L-bars, stirrups, or cranked bars with parametric IS/BS shape codes.
+                Detail straight, L-bars, stirrups, or cranked bars with parametric standard shape codes.
               </p>
             </div>
 

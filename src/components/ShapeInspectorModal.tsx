@@ -52,7 +52,7 @@ export const ShapeInspectorModal: React.FC<ShapeInspectorModalProps> = ({
                 Shape Library & Technical Detailing Inspector
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Standard Bar Shapes (IS 2502:1963 / BS 8666:2020 / SP 34)
+                Standard Bar Shapes (rules follow the project design standard)
               </p>
             </div>
           </div>

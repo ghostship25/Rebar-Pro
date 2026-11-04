@@ -241,7 +241,7 @@ export const BarModal: React.FC<BarModalProps> = ({
                 Mark: {barMark}
               </span>
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400">IS 2502:1963 / BS 8666:2020 Bar Bending Schedule Detailing</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Bar Bending Schedule Detailing (per project design standard)</p>
           </div>
           <button
             type="button"
@@ -447,7 +447,7 @@ export const BarModal: React.FC<BarModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Select Rebar Shape (Standard BS 8666 / IS 2502 & Custom Library):
+                Select Rebar Shape (standard shape codes & Custom Library):
               </label>
               {onOpenCustomShapeStudio && (
                 <button
