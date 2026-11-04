@@ -43,6 +43,7 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
   const [strategy, setStrategy] = useState<OptimizationStrategy>('MULTI_START');
   const [minReusable, setMinReusable] = useState<number>(1.0);
   const [useOffcuts, setUseOffcuts] = useState<boolean>(false);
+  const [lapFactor, setLapFactor] = useState<number>(0);
   const [inventory, setInventory] = useState<OffcutItem[]>(loadInventory);
   const [structureFilter, setStructureFilter] = useState<string>('ALL');
   const [selectedDia, setSelectedDia] = useState<RebarDiameter | null>(null);
@@ -75,8 +76,9 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
         strategy,
         minReusableOffcut: safeMin,
         offcuts: useOffcuts ? inventory : [],
+        lapFactor,
       }),
-    [filteredBars, safeStock, strategy, safeMin, useOffcuts, inventory]
+    [filteredBars, safeStock, strategy, safeMin, useOffcuts, inventory, lapFactor]
   );
 
   const diameters: RebarDiameter[] = Array.from(results.keys());
@@ -87,17 +89,37 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
   const comparison = useMemo(
     () =>
       currentDia
-        ? compareStrategies(filteredBars, currentDia, safeStock, { minReusableOffcut: safeMin, offcuts: useOffcuts ? inventory : [] })
+        ? compareStrategies(filteredBars, currentDia, safeStock, { minReusableOffcut: safeMin, offcuts: useOffcuts ? inventory : [], lapFactor })
         : [],
-    [filteredBars, currentDia, safeStock, safeMin, useOffcuts, inventory]
+    [filteredBars, currentDia, safeStock, safeMin, useOffcuts, inventory, lapFactor]
   );
+
+  // Compare common mill lengths (plus the current custom one) across every diameter.
+  const stockComparison = useMemo(() => {
+    const lengths = Array.from(new Set([...STOCK_PRESETS, safeStock])).sort((a, b) => a - b);
+    return lengths.map((len) => {
+      const res = optimizeAllDiameters(filteredBars, len, { strategy: 'BFD', minReusableOffcut: safeMin, lapFactor });
+      let bars = 0, purchasedM = 0, kg = 0, scrapM = 0, lapM = 0;
+      res.forEach((r, dia) => {
+        bars += r.stockBarsNeeded;
+        purchasedM += r.totalStockLengthMeters;
+        scrapM += r.totalScrapMeters;
+        lapM += r.lapExtraMeters ?? 0;
+        kg += r.totalStockLengthMeters * getUnitWeight(dia);
+      });
+      return { len, bars, kg, lapM, efficiency: purchasedM > 0 ? ((purchasedM - scrapM) / purchasedM) * 100 : 100 };
+    });
+  }, [filteredBars, safeStock, safeMin, lapFactor]);
 
   // Dashboard totals across every diameter in the current filter
   const totals = useMemo(() => {
-    let stockBars = 0, purchasedM = 0, cutM = 0, scrapM = 0, usableM = 0, purchaseKg = 0, netKg = 0, baseBars = 0, baseKg = 0, offcutsUsed = 0;
+    let lapJoints = 0, lapExtraM = 0, lapExtraKg = 0, stockBars = 0, purchasedM = 0, cutM = 0, scrapM = 0, usableM = 0, purchaseKg = 0, netKg = 0, baseBars = 0, baseKg = 0, offcutsUsed = 0;
     results.forEach((r, dia) => {
       const w = getUnitWeight(dia);
       stockBars += r.stockBarsNeeded;
+      lapJoints += r.lapJoints ?? 0;
+      lapExtraM += r.lapExtraMeters ?? 0;
+      lapExtraKg += (r.lapExtraMeters ?? 0) * w;
       purchasedM += r.totalStockLengthMeters;
       cutM += r.totalCutLengthMeters;
       scrapM += r.totalScrapMeters;
@@ -110,7 +132,7 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
     });
     const wasteM = Math.max(0, scrapM - usableM);
     return {
-      stockBars, purchasedM, cutM, scrapM, usableM, wasteM, purchaseKg, netKg, offcutsUsed,
+      lapJoints, lapExtraM, lapExtraKg, stockBars, purchasedM, cutM, scrapM, usableM, wasteM, purchaseKg, netKg, offcutsUsed,
       efficiency: purchasedM > 0 ? ((purchasedM - scrapM) / purchasedM) * 100 : 100,
       wastePct: purchasedM > 0 ? (wasteM / purchasedM) * 100 : 0,
       savedBars: Math.max(0, baseBars - stockBars),
@@ -206,6 +228,17 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
             </select>
           </label>
 
+          <label className="flex flex-col gap-1">
+            <span className="text-slate-600 dark:text-slate-400">Lap splice (bars longer than stock)</span>
+            <select value={lapFactor} onChange={(e) => setLapFactor(parseInt(e.target.value, 10))} className={field} title="Lap length as a multiple of bar diameter. Verify against your governing code and the detailing drawings.">
+              <option value={0}>Off (flag only)</option>
+              <option value={40}>40d</option>
+              <option value={45}>45d</option>
+              <option value={50}>50d</option>
+              <option value={60}>60d</option>
+            </select>
+          </label>
+
           <label className="flex items-center gap-2 pb-1 cursor-pointer text-slate-700 dark:text-slate-300">
             <input type="checkbox" checked={useOffcuts} onChange={(e) => setUseOffcuts(e.target.checked)} className="accent-cyan-500" />
             <Recycle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -238,6 +271,42 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
           <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
             “Unplanned” = first-fit in schedule order with no sorting or offcut reuse. Figures cover {structureFilter === 'ALL' ? 'all structures' : structureFilter}.
           </p>
+
+          {lapFactor > 0 && totals.lapJoints > 0 && (
+            <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+              Lap splicing created {totals.lapJoints} joint(s) at {lapFactor}d, adding {totals.lapExtraM.toFixed(2)} m of steel
+              ({(totals.lapExtraKg).toFixed(0)} kg) beyond the BBS. Confirm splice locations with the structural engineer — laps are not
+              added to the BBS quantities.
+            </div>
+          )}
+
+          {/* Stock length comparison */}
+          <div className={`${card} overflow-x-auto`}>
+            <div className="px-3 pt-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300">Stock length comparison (all diameters, best-fit)</div>
+            <table className="w-full text-xs font-mono">
+              <thead>
+                <tr className="text-left text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                  {['Stock length', 'Stock bars', 'Efficiency', 'Lap extra (m)', 'Purchase (kg)'].map((h) => (
+                    <th key={h} className="px-3 py-2 font-semibold whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stockComparison.map((c) => {
+                  const best = Math.min(...stockComparison.map((x) => x.kg));
+                  return (
+                    <tr key={c.len} className={`border-b border-slate-100 dark:border-slate-900 text-slate-800 dark:text-slate-200 ${c.kg === best ? 'bg-emerald-500/10' : ''}`}>
+                      <td className="px-3 py-1.5 font-bold">{c.len} m{c.len === safeStock ? ' (selected)' : ''}</td>
+                      <td className="px-3 py-1.5">{c.bars}</td>
+                      <td className="px-3 py-1.5">{c.efficiency.toFixed(1)}%</td>
+                      <td className="px-3 py-1.5">{c.lapM.toFixed(2)}</td>
+                      <td className="px-3 py-1.5">{c.kg.toFixed(1)}{c.kg === best ? ' ← least steel' : ''}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/* Per-diameter table */}
           <div className={`${card} overflow-x-auto`}>

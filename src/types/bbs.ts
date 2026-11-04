@@ -193,6 +193,8 @@ export interface CutPiece {
   barMark: string;
   diameter: RebarDiameter;
   length: number; // meters
+  /** True when this piece is one segment of a bar longer than stock length, joined by a lap. */
+  spliced?: boolean;
 }
 
 export interface StockBarPattern {
@@ -224,6 +226,8 @@ export interface OptimizerOptions {
   offcuts?: OffcutItem[];
   /** Leftovers at least this long count as reusable offcuts (default 1.0 m). */
   minReusableOffcut?: number;
+  /** Lap length as a multiple of bar diameter (e.g. 50 = 50d). Bars longer than stock are split with laps; 0/undefined = off. */
+  lapFactor?: number;
 }
 
 export interface OptimizationResult {
@@ -246,6 +250,10 @@ export interface OptimizationResult {
   baselineStockBars?: number;
   /** Theoretical lower bound: ceil(total cut length / stock length). */
   theoreticalMinBars?: number;
+  /** Extra steel (m) consumed by lap overlaps when lap splicing is enabled. */
+  lapExtraMeters?: number;
+  /** Number of lap joints created. */
+  lapJoints?: number;
 }
 
 export interface SteelAbstractItem {

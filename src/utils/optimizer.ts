@@ -191,21 +191,56 @@ function runStrategy(
   return best;
 }
 
-function collectPieces(bars: BarItem[], diameter: RebarDiameter): CutPiece[] {
+/**
+ * Splits a bar longer than stock into lapped segments: each joint re-uses `lapMm` of
+ * bar, so a bar of length L needs L + (joints × lap) of steel in total.
+ */
+export function splitWithLap(lengthMm: number, stockMm: number, lapMm: number): number[] {
+  if (lengthMm <= stockMm || lapMm <= 0 || lapMm >= stockMm / 2) return [lengthMm];
+  const segments: number[] = [];
+  let remaining = lengthMm;
+  while (remaining > stockMm) {
+    segments.push(stockMm);
+    remaining = remaining - stockMm + lapMm;
+  }
+  segments.push(remaining);
+  return segments;
+}
+
+function collectPieces(
+  bars: BarItem[],
+  diameter: RebarDiameter,
+  stockMm: number,
+  lapFactor: number
+): { pieces: CutPiece[]; lapExtraMm: number; joints: number } {
   const cutPieces: CutPiece[] = [];
+  let lapExtraMm = 0;
+  let joints = 0;
+  const lapMm = lapFactor > 0 ? toMm((lapFactor * diameter) / 1000) : 0;
   bars
     .filter((b) => b.diameter === diameter && b.cuttingLength > 0 && b.totalBars > 0)
     .forEach((bar) => {
+      const lengthMm = toMm(bar.cuttingLength);
+      const segments = splitWithLap(lengthMm, stockMm, lapMm);
+      const spliced = segments.length > 1;
+      if (spliced) {
+        const extra = segments.reduce((a, b) => a + b, 0) - lengthMm;
+        lapExtraMm += extra * bar.totalBars;
+        joints += (segments.length - 1) * bar.totalBars;
+      }
       for (let i = 0; i < bar.totalBars; i++) {
-        cutPieces.push({
-          barItemId: bar.id,
-          barMark: bar.barMark,
-          diameter: bar.diameter,
-          length: Number(bar.cuttingLength.toFixed(3)),
+        segments.forEach((seg) => {
+          cutPieces.push({
+            barItemId: bar.id,
+            barMark: bar.barMark,
+            diameter: bar.diameter,
+            length: toM(seg),
+            ...(spliced ? { spliced: true } : {}),
+          });
         });
       }
     });
-  return cutPieces;
+  return { pieces: cutPieces, lapExtraMm, joints };
 }
 
 export function optimizeCuttingStock(
@@ -219,7 +254,8 @@ export function optimizeCuttingStock(
   const offcuts = (options.offcuts ?? []).filter((o) => o.diameter === diameter);
   const stockMm = toMm(stockLength);
   activeMinReusableMm = toMm(minReusable);
-  const cutPieces = collectPieces(bars, diameter);
+  const collected = collectPieces(bars, diameter, stockMm, options.lapFactor ?? 0);
+  const cutPieces = collected.pieces;
 
   if (cutPieces.length === 0) {
     return {
@@ -305,6 +341,8 @@ export function optimizeCuttingStock(
     reusedOffcutLengthMeters: Number(offcutPatterns.reduce((a, p) => a + p.usedLength, 0).toFixed(3)),
     baselineStockBars: baselineBins.length,
     theoreticalMinBars: Math.ceil(totalCutLengthMeters / stockLength - 1e-9),
+    lapExtraMeters: toM(collected.lapExtraMm),
+    lapJoints: collected.joints,
   };
 }
 
