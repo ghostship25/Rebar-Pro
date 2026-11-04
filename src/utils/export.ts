@@ -286,11 +286,12 @@ export async function exportToExcel(project: ProjectData): Promise<void> {
   styleTotalsRow(wsAbstract, absSummaryRow, absColCount);
 
   const wireRow = absSummaryRow + 2;
-  const wireKg = Number((abstract.totalGrossWeightMT * project.metadata.bindingWireRateKgPerMT).toFixed(2));
+  const wireRate = Number.isFinite(Number(project.metadata.bindingWireRateKgPerMT)) ? Number(project.metadata.bindingWireRateKgPerMT) : 0;
+  const wireKg = Number((abstract.totalGrossWeightMT * wireRate).toFixed(2));
   wsAbstract.getCell(wireRow, 1).value = 'ESTIMATED BINDING WIRE';
   wsAbstract.getCell(wireRow, 1).font = { bold: true, size: 10 };
-  wsAbstract.getCell(wireRow, 2).value = `@ ${project.metadata.bindingWireRateKgPerMT} kg / MT`;
-  wsAbstract.getCell(wireRow, 4).value = { formula: `ROUND(H${absSummaryRow}*${project.metadata.bindingWireRateKgPerMT}, 2)`, result: wireKg };
+  wsAbstract.getCell(wireRow, 2).value = `@ ${wireRate} kg / MT`;
+  wsAbstract.getCell(wireRow, 4).value = { formula: `ROUND(H${absSummaryRow}*${wireRate}, 2)`, result: wireKg };
   wsAbstract.getCell(wireRow, 4).numFmt = '#,##0.00';
   wsAbstract.getCell(wireRow, 5).value = 'kg (18-gauge annealed GI wire)';
 
@@ -502,13 +503,24 @@ export function exportToJson(project: ProjectData) {
  */
 export function loadProjectFromJson(file: File): Promise<ProjectData> {
   return new Promise((resolve, reject) => {
+    if (file.size > 20 * 1024 * 1024) {
+      reject(new Error('Project file too large (max 20 MB).'));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
-        const parsed = JSON.parse(text) as ProjectData;
-        if (!parsed.metadata || !Array.isArray(parsed.bars)) {
+        const parsed = JSON.parse(text, (key, value) =>
+          key === '__proto__' || key === 'constructor' || key === 'prototype' ? undefined : value
+        ) as ProjectData;
+        if (!parsed || typeof parsed !== 'object' || !parsed.metadata || typeof parsed.metadata !== 'object' || !Array.isArray(parsed.bars)) {
           throw new Error('Invalid BBS Project file format.');
+        }
+        const meta = parsed.metadata as unknown as Record<string, unknown>;
+        for (const k of ['bindingWireRateKgPerMT', 'wastagePercent']) {
+          const n = Number(meta[k]);
+          meta[k] = Number.isFinite(n) && n >= 0 ? n : 0;
         }
         resolve(parsed);
       } catch (err) {

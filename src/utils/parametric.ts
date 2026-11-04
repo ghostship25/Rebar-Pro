@@ -18,40 +18,96 @@ export function evaluateParametricMath(expression: string, context: ParametricCo
   if (!expression || expression.trim() === '') return 0;
 
   const trimmed = expression.trim();
-  // If it's just a number
   const directNum = parseFloat(trimmed);
   if (!isNaN(directNum) && directNum.toString() === trimmed) {
     return directNum;
   }
 
   try {
-    // Sanitize string to allow only numbers, math functions, operators, and context keys
-    let sanitized = trimmed
-      .replace(/\bL\b/gi, context.L.toString())
-      .replace(/\b(B|W)\b/gi, context.B.toString())
-      .replace(/\b(D|H)\b/gi, context.D.toString())
-      .replace(/\bcover\b/gi, context.cover.toString())
-      .replace(/\bceil\b/gi, 'Math.ceil')
-      .replace(/\bround\b/gi, 'Math.round')
-      .replace(/\bfloor\b/gi, 'Math.floor')
-      .replace(/\bmax\b/gi, 'Math.max')
-      .replace(/\bmin\b/gi, 'Math.min')
-      .replace(/\babs\b/gi, 'Math.abs');
-
-    // Security check: ensure only Math, digits, operators, parens, decimal points, commas, spaces remain
-    if (!/^[0-9+\-*/()., \tMathceilroundfloormaxminabs]+$/.test(sanitized)) {
-      console.warn('Expression failed security regex check:', expression);
-      return directNum || 0;
-    }
-
-    // eslint-disable-next-line no-new-func
-    const fn = new Function(`return (${sanitized});`);
-    const val = Number(fn());
+    const val = parseExpression(trimmed, context);
     return isFinite(val) ? Number(val.toFixed(4)) : 0;
   } catch (err) {
     console.warn('Error evaluating expression:', expression, err);
-    return directNum || 0;
+    return isNaN(directNum) ? 0 : directNum;
   }
+}
+
+const MATH_FUNCTIONS: Record<string, (...args: number[]) => number> = {
+  ceil: Math.ceil,
+  round: Math.round,
+  floor: Math.floor,
+  abs: Math.abs,
+  min: Math.min,
+  max: Math.max,
+};
+
+/** Recursive-descent parser: never executes JavaScript, only whitelisted math. */
+function parseExpression(src: string, ctx: ParametricContext): number {
+  const tokens = src.match(/\d*\.?\d+|[A-Za-z_]\w*|[-+*/(),]|\S/g) || [];
+  let pos = 0;
+  const peek = () => tokens[pos];
+  const next = () => tokens[pos++];
+
+  const variable = (name: string): number => {
+    switch (name.toLowerCase()) {
+      case 'l': return ctx.L;
+      case 'b': case 'w': return ctx.B;
+      case 'd': case 'h': return ctx.D;
+      case 'cover': return ctx.cover;
+      default: throw new Error(`Unknown identifier: ${name}`);
+    }
+  };
+
+  const primary = (): number => {
+    const t = next();
+    if (t === undefined) throw new Error('Unexpected end of expression');
+    if (t === '(') {
+      const v = additive();
+      if (next() !== ')') throw new Error('Missing )');
+      return v;
+    }
+    if (t === '-') return -primary();
+    if (t === '+') return primary();
+    if (/^(\d|\.\d)/.test(t)) return parseFloat(t);
+    if (/^[A-Za-z_]/.test(t)) {
+      const fn = MATH_FUNCTIONS[t.toLowerCase()];
+      if (fn && peek() === '(') {
+        next();
+        const args: number[] = [];
+        if (peek() !== ')') {
+          do { args.push(additive()); } while (peek() === ',' && next());
+        }
+        if (next() !== ')') throw new Error('Missing )');
+        return fn(...args);
+      }
+      return variable(t);
+    }
+    throw new Error(`Unexpected token: ${t}`);
+  };
+
+  const multiplicative = (): number => {
+    let v = primary();
+    while (peek() === '*' || peek() === '/') {
+      const op = next();
+      const r = primary();
+      v = op === '*' ? v * r : v / r;
+    }
+    return v;
+  };
+
+  function additive(): number {
+    let v = multiplicative();
+    while (peek() === '+' || peek() === '-') {
+      const op = next();
+      const r = multiplicative();
+      v = op === '+' ? v + r : v - r;
+    }
+    return v;
+  }
+
+  const result = additive();
+  if (pos < tokens.length) throw new Error(`Unexpected token: ${tokens[pos]}`);
+  return result;
 }
 
 /**
