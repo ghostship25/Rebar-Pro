@@ -25,6 +25,7 @@ import {
   Sparkles,
   LayoutGrid,
   List,
+  Calculator,
 } from 'lucide-react';
 
 interface BbsTableProps {
@@ -36,6 +37,7 @@ interface BbsTableProps {
   onDeleteBar: (barId: string) => void;
   onMoveBar: (barId: string, direction: 'up' | 'down') => void;
   onInspectCanvas: (bar: BarItem) => void;
+  onShowCalc?: (bar: BarItem) => void;
   onOpenSectionTemplates?: () => void;
   onAddStructure?: () => void;
   onAddBarForContext?: (context: {
@@ -68,6 +70,7 @@ export const BbsTable: React.FC<BbsTableProps> = ({
   onDeleteBar,
   onMoveBar,
   onInspectCanvas,
+  onShowCalc,
   onOpenSectionTemplates,
   onAddStructure,
   onAddBarForContext,
@@ -727,6 +730,17 @@ export const BbsTable: React.FC<BbsTableProps> = ({
         {/* Row Actions */}
         <td className="py-2 px-2 text-center">
           <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100">
+            {onShowCalc && (
+              <button
+                type="button"
+                onClick={() => onShowCalc(bar)}
+                className="p-1 rounded text-slate-600 dark:text-slate-400 hover:text-cyan-400 hover:bg-slate-200 hover:dark:bg-slate-800 transition-colors cursor-pointer"
+                title="Show calculation"
+                aria-label="Show calculation"
+              >
+                <Calculator className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onEditBar(bar)}

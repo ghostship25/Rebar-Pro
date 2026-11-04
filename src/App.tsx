@@ -7,6 +7,7 @@ import {
   SectionTemplate,
   StructureNode,
   StructuralMemberType,
+  RevisionSnapshot,
 } from './types/bbs';
 import { PRESET_PROJECTS } from './utils/presets';
 import { DEFAULT_SECTION_TEMPLATES } from './utils/parametric';
@@ -27,6 +28,9 @@ import { PrintReport } from './components/PrintReport';
 import { FieldSheets } from './components/FieldSheets';
 import { CsvImportModal } from './components/CsvImportModal';
 import { barsToCsv } from './utils/csv';
+import { CalcBreakdownModal } from './components/CalcBreakdownModal';
+import { RevisionHistoryModal } from './components/RevisionHistoryModal';
+import { createRevision, appendRevision } from './utils/revisions';
 import { CustomShapeModal } from './components/CustomShapeModal';
 import { SectionTemplateModal } from './components/SectionTemplateModal';
 import {
@@ -49,6 +53,7 @@ import {
   Network,
   FolderPlus,
   RotateCcw,
+  History,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'rebar_pro_bbs_project_v1';
@@ -131,6 +136,8 @@ export default function App() {
   const [isPrintViewOpen, setIsPrintViewOpen] = useState(false);
   const [isFieldSheetsOpen, setIsFieldSheetsOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [calcBar, setCalcBar] = useState<BarItem | null>(null);
+  const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
 
   // Modals for Custom Shapes & Section Templates
   const [isCustomShapeModalOpen, setIsCustomShapeModalOpen] = useState(false);
@@ -345,6 +352,37 @@ export default function App() {
       console.error('PDF export failed:', err);
       showToast('PDF export failed — check the console for details.');
     }
+  };
+
+  const handleCreateRevision = (label: string, note: string) => {
+    setProject((prev) => ({
+      ...prev,
+      metadata: { ...prev.metadata, revision: label },
+      revisions: appendRevision(prev.revisions, createRevision(prev.bars, label, note)),
+    }));
+    showToast(`Revision ${label} saved.`);
+  };
+
+  const handleRestoreRevision = (rev: RevisionSnapshot) => {
+    setProject((prev) => ({
+      ...prev,
+      bars: JSON.parse(JSON.stringify(rev.bars)) as BarItem[],
+      revisions: appendRevision(prev.revisions, createRevision(prev.bars, `Before restore of ${rev.label}`, 'Automatic snapshot')),
+    }));
+    showToast(`Restored ${rev.label}.`);
+  };
+
+  const handleDeleteRevision = (id: string) => {
+    setProject((prev) => ({ ...prev, revisions: (prev.revisions || []).filter((r) => r.id !== id) }));
+  };
+
+  const handleUpdateConsumption = (diameter: number, kg: number | undefined) => {
+    setProject((prev) => {
+      const next = { ...(prev.actualConsumptionKg || {}) };
+      if (kg === undefined) delete next[String(diameter)];
+      else next[String(diameter)] = kg;
+      return { ...prev, actualConsumptionKg: next };
+    });
   };
 
   const handleExportCsv = () => {
@@ -691,6 +729,12 @@ export default function App() {
             </div>
 
             <IconButton
+              icon={<History className="w-4 h-4" />}
+              label="Revision History"
+              onClick={() => setIsRevisionsOpen(true)}
+            />
+
+            <IconButton
               icon={<Settings className="w-4 h-4" />}
               label="Project Specifications & Standards"
               onClick={() => setIsSettingsOpen(true)}
@@ -920,6 +964,7 @@ export default function App() {
               onDuplicateBar={handleDuplicateBar}
               onDeleteBar={handleDeleteBar}
               onMoveBar={handleMoveBar}
+              onShowCalc={setCalcBar}
               onInspectCanvas={(bar) => {
                 setInspectingBar(bar);
                 setIsShapeInspectorOpen(true);
@@ -938,6 +983,8 @@ export default function App() {
             bars={project.bars}
             metadata={project.metadata}
             onUpdateMetadata={handleUpdateMetadata}
+            actualConsumptionKg={project.actualConsumptionKg}
+            onUpdateConsumption={handleUpdateConsumption}
           />
         )}
 
@@ -1026,6 +1073,19 @@ export default function App() {
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
         onGenerate={handleWizardGenerated}
+      />
+
+      <CalcBreakdownModal bar={calcBar} onClose={() => setCalcBar(null)} />
+
+      <RevisionHistoryModal
+        isOpen={isRevisionsOpen}
+        onClose={() => setIsRevisionsOpen(false)}
+        bars={project.bars}
+        currentLabel={project.metadata.revision}
+        revisions={project.revisions || []}
+        onCreate={handleCreateRevision}
+        onRestore={handleRestoreRevision}
+        onDelete={handleDeleteRevision}
       />
 
       <CsvImportModal

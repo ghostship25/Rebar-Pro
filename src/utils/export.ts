@@ -553,6 +553,28 @@ export function loadProjectFromJson(file: File): Promise<ProjectData> {
         if (typeof meta.logoDataUrl !== 'string' || !/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(meta.logoDataUrl) || meta.logoDataUrl.length > 400000) {
           delete meta.logoDataUrl;
         }
+        const rawRevs = (parsed as unknown as { revisions?: unknown }).revisions;
+        parsed.revisions = Array.isArray(rawRevs)
+          ? rawRevs
+              .filter((r: any) => r && typeof r === 'object' && Array.isArray(r.bars) && typeof r.id === 'string')
+              .slice(-20)
+              .map((r: any) => ({
+                id: String(r.id).slice(0, 60),
+                label: String(r.label ?? '').slice(0, 40),
+                note: String(r.note ?? '').slice(0, 500),
+                createdAt: String(r.createdAt ?? ''),
+                bars: r.bars,
+              }))
+          : [];
+        const rawAct = (parsed as unknown as { actualConsumptionKg?: unknown }).actualConsumptionKg;
+        const act: Record<string, number> = {};
+        if (rawAct && typeof rawAct === 'object') {
+          for (const [k, v] of Object.entries(rawAct as Record<string, unknown>)) {
+            const n = Number(v);
+            if (/^\d{1,2}$/.test(k) && Number.isFinite(n) && n >= 0) act[k] = n;
+          }
+        }
+        parsed.actualConsumptionKg = act;
         for (const k of ['bindingWireRateKgPerMT', 'wastagePercent', 'steelRatePerKg']) {
           const n = Number(meta[k]);
           meta[k] = Number.isFinite(n) && n >= 0 ? n : 0;

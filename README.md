@@ -14,6 +14,9 @@ to back up or share a project.
 - **CSV export, and CSV import / paste from Excel** (dimensions in mm or m; cut lengths and weights auto-calculated)
 - **Yard tags and cut list**: printable bar-mark tags and a cut list grouped by diameter and cutting length
 - Steel abstract with wastage, binding wire and **steel cost** (rate per kg)
+- **Show calculation** per bar (calculator icon in the schedule): inputs, formula, hook additions, bend deductions, unit weight and total weight, with a warning if stored values are stale
+- **Revision history** (clock icon in the header): save snapshots when you issue the schedule, see added/removed/changed bars and the weight difference since, and restore (up to 20 revisions)
+- **Steel reconciliation** (Abstract tab): enter actual issued steel per diameter and compare it with the BBS and the wastage allowance
 - Reports with **company logo** and header/footer notes (set in Project Settings)
 
 ## Run locally

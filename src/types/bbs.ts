@@ -4,6 +4,8 @@
 export const STANDARD_DIAMETERS = [6, 8, 10, 12, 16, 20, 25, 28, 32, 36, 40] as const;
 export type RebarDiameter = typeof STANDARD_DIAMETERS[number];
 
+export const MAX_REVISIONS = 20;
+
 export const STOCK_BAR_LENGTH = 12.0; // Commercial mill length in meters
 
 export type StructuralMemberType = 
@@ -293,8 +295,20 @@ export interface SectionTemplate {
   isPredefined?: boolean;
 }
 
+export interface RevisionSnapshot {
+  id: string;
+  label: string; // e.g. "R1"
+  note: string;
+  createdAt: string; // ISO timestamp
+  bars: BarItem[];
+}
+
 export interface ProjectData {
   metadata: ProjectMetadata;
+  /** Saved schedule snapshots, newest last. Capped at MAX_REVISIONS. */
+  revisions?: RevisionSnapshot[];
+  /** Site-reported steel actually issued/consumed (kg), keyed by bar diameter in mm. */
+  actualConsumptionKg?: Record<string, number>;
   bars: BarItem[];
   structures?: StructureNode[];
   customShapes?: CustomShapeDefinition[];

@@ -8,12 +8,16 @@ interface SteelAbstractProps {
   bars: BarItem[];
   metadata: ProjectMetadata;
   onUpdateMetadata: (updates: Partial<ProjectMetadata>) => void;
+  actualConsumptionKg?: Record<string, number>;
+  onUpdateConsumption?: (diameter: number, kg: number | undefined) => void;
 }
 
 export const SteelAbstract: React.FC<SteelAbstractProps> = ({
   bars,
   metadata,
   onUpdateMetadata,
+  actualConsumptionKg,
+  onUpdateConsumption,
 }) => {
   const abstract = computeSteelAbstract(bars, metadata.wastagePercent);
   const bindingWireTotalKg = estimateBindingWireKg(abstract.totalGrossWeightKg, metadata.bindingWireRateKgPerMT);
@@ -230,6 +234,80 @@ export const SteelAbstract: React.FC<SteelAbstractProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Steel reconciliation: site consumption vs BBS */}
+      {onUpdateConsumption && (
+        <div className="bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+          <div>
+            <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              Steel Reconciliation — Site Consumption vs BBS
+            </h4>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+              Enter the steel actually issued or consumed per diameter. Variance is measured against the net BBS weight;
+              the allowed wastage band is {metadata.wastagePercent}%.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs font-mono">
+              <thead>
+                <tr className="text-left text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                  <th className="py-2 px-2">Dia</th>
+                  <th className="py-2 px-2 text-right">BBS net (kg)</th>
+                  <th className="py-2 px-2 text-right">Actual issued (kg)</th>
+                  <th className="py-2 px-2 text-right">Variance (kg)</th>
+                  <th className="py-2 px-2 text-right">Variance %</th>
+                  <th className="py-2 px-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {abstract.items.map((it) => {
+                  const actual = actualConsumptionKg?.[String(it.diameter)];
+                  const hasActual = actual !== undefined;
+                  const variance = hasActual ? actual - it.netWeightKg : 0;
+                  const pct = hasActual && it.netWeightKg > 0 ? (variance / it.netWeightKg) * 100 : 0;
+                  const status = !hasActual
+                    ? '—'
+                    : pct > metadata.wastagePercent
+                      ? 'Over allowance'
+                      : pct < 0
+                        ? 'Under BBS'
+                        : 'Within allowance';
+                  const color = !hasActual
+                    ? ''
+                    : pct > metadata.wastagePercent
+                      ? 'text-rose-500'
+                      : pct < 0
+                        ? 'text-amber-500'
+                        : 'text-emerald-500';
+                  return (
+                    <tr key={it.diameter} className="border-b border-slate-200 dark:border-slate-800/60">
+                      <td className="py-1.5 px-2 font-bold">T{it.diameter}</td>
+                      <td className="py-1.5 px-2 text-right">{it.netWeightKg.toLocaleString()}</td>
+                      <td className="py-1.5 px-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          aria-label={`Actual consumption T${it.diameter} in kg`}
+                          value={actual ?? ''}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            onUpdateConsumption(it.diameter, Number.isFinite(v) && v >= 0 ? v : undefined);
+                          }}
+                          className="w-24 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-right focus:outline-none focus:border-cyan-500"
+                        />
+                      </td>
+                      <td className={`py-1.5 px-2 text-right ${color}`}>{hasActual ? `${variance > 0 ? '+' : ''}${variance.toFixed(1)}` : '—'}</td>
+                      <td className={`py-1.5 px-2 text-right ${color}`}>{hasActual ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}</td>
+                      <td className={`py-1.5 px-2 ${color}`}>{status}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Visual Weight Distribution Bars */}
       <div className="bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
