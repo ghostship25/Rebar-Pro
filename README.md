@@ -12,6 +12,7 @@ Bar Bending Schedules and cutting-stock optimization for civil engineers. Runs e
 - IS 2502 / SP 34 and BS 8666 shape codes, member wizards, section templates, custom shapes
 - Per-bar **Show calculation** (inputs, formula, hooks, bend deductions, weight)
 - CSV export, CSV import and paste from Excel (mm or m)
+- **DXF export** (AutoCAD-compatible schedule table with schematic bar sketches)
 - Revision history with diff and restore
 
 **Site & procurement**
@@ -52,4 +53,4 @@ Pushes to `main` deploy to GitHub Pages via GitHub Actions (**Settings → Pages
 ## Roadmap
 
 - ACI 318 and AS 3600 shape/hook/lap rules (pending verified code tables)
-- DXF / Revit export
+- Dimensioned, to-scale DXF bar sketches; Revit export

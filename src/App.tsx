@@ -27,6 +27,7 @@ import { ShapeInspectorModal } from './components/ShapeInspectorModal';
 import { PrintReport } from './components/PrintReport';
 import { FieldSheets } from './components/FieldSheets';
 import { CsvImportModal } from './components/CsvImportModal';
+import { barsToDxf } from './utils/dxf';
 import { barsToCsv } from './utils/csv';
 import { CalcBreakdownModal } from './components/CalcBreakdownModal';
 import { RevisionHistoryModal } from './components/RevisionHistoryModal';
@@ -400,6 +401,23 @@ export default function App() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast('CSV downloaded.');
+  };
+
+  const handleExportDxf = () => {
+    if (project.bars.length === 0) {
+      showToast('Add at least one bar before exporting.');
+      return;
+    }
+    const blob = new Blob([barsToDxf(project)], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(project.metadata.projectTitle || 'bbs').replace(/[^a-z0-9-_]+/gi, '_')}.dxf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('DXF downloaded.');
   };
 
   const handleImportCsvBars = (newBars: BarItem[]) => {
@@ -808,6 +826,14 @@ export default function App() {
                       Printable bar-mark tags and a cut list grouped by diameter and cutting length
                     </div>
                   </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportDxf}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Export DXF (AutoCAD)</span>
                 </button>
                 <button
                   type="button"
