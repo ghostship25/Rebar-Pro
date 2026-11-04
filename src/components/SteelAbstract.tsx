@@ -18,6 +18,9 @@ export const SteelAbstract: React.FC<SteelAbstractProps> = ({
   const abstract = computeSteelAbstract(bars, metadata.wastagePercent);
   const bindingWireTotalKg = estimateBindingWireKg(abstract.totalGrossWeightKg, metadata.bindingWireRateKgPerMT);
 
+  const rate = metadata.steelRatePerKg || 0;
+  const steelCost = abstract.totalGrossWeightKg * rate;
+
   // Maximum weight for proportional bar widths
   const maxWeightKg = Math.max(...abstract.items.map((i) => i.netWeightKg), 1);
 
@@ -78,7 +81,31 @@ export const SteelAbstract: React.FC<SteelAbstractProps> = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+            <span>Est. Steel Cost</span>
+            <span className="font-mono text-xs text-rose-400">{metadata.currency || ''}</span>
+          </div>
+          <div className="mt-2">
+            <span className="text-2xl font-bold font-mono text-rose-400">
+              {rate > 0 ? steelCost.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—'}
+            </span>
+            <div className="flex items-center gap-1 text-[11px] font-mono text-slate-600 dark:text-slate-400 mt-1">
+              Rate/kg:
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                aria-label="Steel rate per kg"
+                value={metadata.steelRatePerKg ?? ''}
+                onChange={(e) => onUpdateMetadata({ steelRatePerKg: Math.max(0, parseFloat(e.target.value) || 0) })}
+                className="w-16 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-right focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
             <span>Net Steel Weight</span>

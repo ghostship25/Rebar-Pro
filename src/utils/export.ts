@@ -518,7 +518,10 @@ export function loadProjectFromJson(file: File): Promise<ProjectData> {
           throw new Error('Invalid BBS Project file format.');
         }
         const meta = parsed.metadata as unknown as Record<string, unknown>;
-        for (const k of ['bindingWireRateKgPerMT', 'wastagePercent']) {
+        if (typeof meta.logoDataUrl !== 'string' || !/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(meta.logoDataUrl) || meta.logoDataUrl.length > 400000) {
+          delete meta.logoDataUrl;
+        }
+        for (const k of ['bindingWireRateKgPerMT', 'wastagePercent', 'steelRatePerKg']) {
           const n = Number(meta[k]);
           meta[k] = Number.isFinite(n) && n >= 0 ? n : 0;
         }

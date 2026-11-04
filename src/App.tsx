@@ -24,6 +24,9 @@ import { MemberWizardsModal } from './components/MemberWizardsModal';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { ShapeInspectorModal } from './components/ShapeInspectorModal';
 import { PrintReport } from './components/PrintReport';
+import { FieldSheets } from './components/FieldSheets';
+import { CsvImportModal } from './components/CsvImportModal';
+import { barsToCsv } from './utils/csv';
 import { CustomShapeModal } from './components/CustomShapeModal';
 import { SectionTemplateModal } from './components/SectionTemplateModal';
 import {
@@ -126,6 +129,8 @@ export default function App() {
   const [isShapeInspectorOpen, setIsShapeInspectorOpen] = useState(false);
   const [inspectingBar, setInspectingBar] = useState<BarItem | null>(null);
   const [isPrintViewOpen, setIsPrintViewOpen] = useState(false);
+  const [isFieldSheetsOpen, setIsFieldSheetsOpen] = useState(false);
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
 
   // Modals for Custom Shapes & Section Templates
   const [isCustomShapeModalOpen, setIsCustomShapeModalOpen] = useState(false);
@@ -342,6 +347,28 @@ export default function App() {
     }
   };
 
+  const handleExportCsv = () => {
+    if (project.bars.length === 0) {
+      showToast('Add at least one bar before exporting.');
+      return;
+    }
+    const blob = new Blob([barsToCsv(project.bars)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(project.metadata.projectTitle || 'bbs').replace(/[^a-z0-9-_]+/gi, '_')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('CSV downloaded.');
+  };
+
+  const handleImportCsvBars = (newBars: BarItem[]) => {
+    setProject((prev) => ({ ...prev, bars: [...prev.bars, ...newBars] }));
+    showToast(`Imported ${newBars.length} bar(s) from CSV.`);
+  };
+
   const handleDuplicateBar = (barId: string) => {
     const found = project.bars.find((b) => b.id === barId);
     if (!found) return;
@@ -518,6 +545,10 @@ export default function App() {
 
   // Global schedule summary
   const totalScheduleWeight = project.bars.reduce((sum, b) => sum + b.totalWeight, 0);
+
+  if (isFieldSheetsOpen) {
+    return <FieldSheets project={project} onClose={() => setIsFieldSheetsOpen(false)} />;
+  }
 
   if (isPrintViewOpen) {
     return <PrintReport project={project} onClose={() => setIsPrintViewOpen(false)} />;
@@ -720,6 +751,35 @@ export default function App() {
                       On-screen preview with contractor sign-off blocks — print or Save as PDF from there too
                     </div>
                   </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFieldSheetsOpen(true)}
+                  className="w-full flex items-start gap-2.5 px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <Scissors className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="font-bold">Yard Tags &amp; Cut List</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Printable bar-mark tags and a cut list grouped by diameter and cutting length
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                  <span>Export CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCsvImportOpen(true)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Import CSV / Paste from Excel</span>
                 </button>
                 <div className="border-t border-slate-200 dark:border-slate-800 my-1" />
                 <button
@@ -966,6 +1026,12 @@ export default function App() {
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
         onGenerate={handleWizardGenerated}
+      />
+
+      <CsvImportModal
+        isOpen={isCsvImportOpen}
+        onClose={() => setIsCsvImportOpen(false)}
+        onImport={handleImportCsvBars}
       />
 
       <ProjectSettingsModal

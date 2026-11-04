@@ -15,6 +15,8 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
   const abstract = computeSteelAbstract(project.bars, project.metadata.wastagePercent);
   const bindingWireKg = estimateBindingWireKg(abstract.totalGrossWeightKg, project.metadata.bindingWireRateKgPerMT);
 
+  const steelCost = abstract.totalGrossWeightKg * (project.metadata.steelRatePerKg || 0);
+
   const handlePrint = () => {
     window.print();
   };
@@ -62,7 +64,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
         {/* Title Header Block */}
         <div className="border-2 border-slate-900 p-4 mb-4">
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3">
-            <div>
+            {project.metadata.logoDataUrl && (
+              <img src={project.metadata.logoDataUrl} alt="Company logo" className="h-14 w-auto object-contain mr-4" />
+            )}
+            <div className="flex-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 block">
                 Civil & Structural Engineering Bar Bending Schedule (BBS)
               </span>
@@ -72,6 +77,9 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
               <div className="text-xs font-medium text-slate-700 mt-1">
                 Standard: <strong className="text-slate-900">{project.metadata.standard}</strong> · Code Compliance: IS 456, IS 1786, SP 34 & BS 8666:2020
               </div>
+              {project.metadata.reportHeaderNote && (
+                <div className="text-[11px] text-slate-700 mt-1 whitespace-pre-line">{project.metadata.reportHeaderNote}</div>
+              )}
             </div>
 
             <div className="text-right font-mono text-[11px] space-y-0.5">
@@ -227,6 +235,12 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
                   <span>Gross Steel Requirement:</span>
                   <span>{abstract.totalGrossWeightKg.toLocaleString()} kg ({(abstract.totalGrossWeightKg / 1000).toFixed(3)} MT)</span>
                 </div>
+                {steelCost > 0 && (
+                  <div className="flex justify-between font-bold">
+                    <span>Estimated Steel Cost (@ {project.metadata.steelRatePerKg}/kg):</span>
+                    <span>{project.metadata.currency || ''} {steelCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-slate-700 pt-1">
                   <span>Commercial 12.0m Mill Rebars:</span>
                   <strong>{abstract.totalStock12mBars} stock bars</strong>
@@ -243,6 +257,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
             </div>
           </div>
         </div>
+
+        {project.metadata.reportFooterNote && (
+          <div className="text-[10px] text-slate-600 mb-3 whitespace-pre-line">{project.metadata.reportFooterNote}</div>
+        )}
 
         {/* Approval Sign-off Box */}
         <div className="border-2 border-slate-900 grid grid-cols-4 text-center divide-x-2 divide-slate-900">

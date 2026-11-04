@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProjectMetadata, DesignStandard } from '../types/bbs';
 import { X, Check, Settings2 } from 'lucide-react';
 
@@ -15,9 +15,38 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   metadata,
   onSave,
 }) => {
+  const [formData, setFormData] = useState<ProjectMetadata>({ ...metadata });
+  const [logoError, setLogoError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ ...metadata });
+      setLogoError('');
+    }
+  }, [isOpen, metadata]);
+
   if (!isOpen) return null;
 
-  const [formData, setFormData] = useState<ProjectMetadata>({ ...metadata });
+  const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      setLogoError('Logo must be a PNG or JPEG image.');
+      return;
+    }
+    if (file.size > 200 * 1024) {
+      setLogoError('Logo must be under 200 KB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoError('');
+      handleChange('logoDataUrl', String(reader.result));
+    };
+    reader.onerror = () => setLogoError('Failed to read image.');
+    reader.readAsDataURL(file);
+  };
 
   const handleChange = (field: keyof ProjectMetadata, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -169,6 +198,71 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                 value={formData.bindingWireRateKgPerMT}
                 onChange={(e) => handleChange('bindingWireRateKgPerMT', Math.max(0, parseFloat(e.target.value) || 0))}
                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 font-mono text-right focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Steel Purchase Rate (per kg)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.steelRatePerKg ?? ''}
+                placeholder="Leave empty to hide cost"
+                onChange={(e) => handleChange('steelRatePerKg', Math.max(0, parseFloat(e.target.value) || 0))}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 font-mono text-right focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Currency</label>
+              <input
+                type="text"
+                maxLength={4}
+                value={formData.currency ?? ''}
+                placeholder="INR"
+                onChange={(e) => handleChange('currency', e.target.value.toUpperCase())}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Company Logo (PNG/JPEG, max 200 KB)</label>
+            <div className="flex items-center gap-3">
+              {formData.logoDataUrl && (
+                <>
+                  <img src={formData.logoDataUrl} alt="Logo preview" className="h-10 w-auto bg-white rounded border border-slate-300 p-0.5" />
+                  <button type="button" onClick={() => handleChange('logoDataUrl', undefined)} className="text-rose-600 dark:text-rose-400 underline">
+                    Remove
+                  </button>
+                </>
+              )}
+              <input type="file" accept="image/png,image/jpeg" onChange={handleLogo} className="text-slate-700 dark:text-slate-300" />
+            </div>
+            {logoError && <p className="text-rose-600 dark:text-rose-400 mt-1">{logoError}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Report Header Note</label>
+              <textarea
+                rows={2}
+                maxLength={300}
+                value={formData.reportHeaderNote ?? ''}
+                onChange={(e) => handleChange('reportHeaderNote', e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Report Footer Note</label>
+              <textarea
+                rows={2}
+                maxLength={300}
+                value={formData.reportFooterNote ?? ''}
+                onChange={(e) => handleChange('reportFooterNote', e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-cyan-500"
               />
             </div>
           </div>

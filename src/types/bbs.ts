@@ -177,6 +177,13 @@ export interface ProjectMetadata {
   standard: DesignStandard;
   wastagePercent: number; // default 3.5%
   bindingWireRateKgPerMT: number; // default 9.0 kg / MT
+  /** Steel purchase rate per kg, in `currency`. Omitted/0 hides cost figures. */
+  steelRatePerKg?: number;
+  currency?: string; // e.g. "INR", "GBP", "USD"
+  /** Company logo as a PNG/JPEG data URL (size-limited at upload). */
+  logoDataUrl?: string;
+  reportHeaderNote?: string; // free text under the report title
+  reportFooterNote?: string; // free text in the report footer
 }
 
 export interface CutPiece {

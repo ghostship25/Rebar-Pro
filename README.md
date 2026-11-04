@@ -8,6 +8,14 @@ This is a self-contained client-side app — no backend or API key required. All
 kept locally in your browser (`localStorage`); use **Export → Save Project File (.bbs)**
 to back up or share a project.
 
+## Features
+
+- Bar bending schedule with IS 2502 / BS 8666 shapes, member wizards and section templates
+- **CSV export, and CSV import / paste from Excel** (dimensions in mm or m; cut lengths and weights auto-calculated)
+- **Yard tags and cut list**: printable bar-mark tags and a cut list grouped by diameter and cutting length
+- Steel abstract with wastage, binding wire and **steel cost** (rate per kg)
+- Reports with **company logo** and header/footer notes (set in Project Settings)
+
 ## Run locally
 
 **Prerequisites:** Node.js 18+
