@@ -1,3 +1,4 @@
+import { codeTensionLapMm } from './codeRules';
 import {
   BarItem,
   RebarDiameter,
@@ -216,7 +217,9 @@ function collectPieces(
   const cutPieces: CutPiece[] = [];
   let lapExtraMm = 0;
   let joints = 0;
-  const lapMm = lapFactor > 0 ? toMm((lapFactor * diameter) / 1000) : 0;
+  // lapFactor < 0 selects the lap length of the active ACI / AS code profile.
+  const codeLap = lapFactor < 0 ? codeTensionLapMm(diameter) : null;
+  const lapMm = lapFactor > 0 ? toMm((lapFactor * diameter) / 1000) : codeLap ? Math.round(codeLap) : 0;
   bars
     .filter((b) => b.diameter === diameter && b.cuttingLength > 0 && b.totalBars > 0)
     .forEach((bar) => {

@@ -1,4 +1,5 @@
 import { RebarDiameter, BarItem } from '../types/bbs';
+import { profileUnitWeight } from './codeRules';
 
 /**
  * Theoretical unit weight of nominal rebar in kg/meter.
@@ -21,17 +22,24 @@ export const STANDARD_UNIT_WEIGHTS: Record<RebarDiameter, number> = {
   8: 0.395,
   10: 0.617,
   12: 0.888,
+  13: 0.994,
   16: 1.580,
+  19: 2.235,
   20: 2.470,
+  22: 3.042,
+  24: 3.550,
   25: 3.858,
   28: 4.834,
+  29: 5.060,
   32: 6.313,
   36: 7.990,
   40: 9.870,
+  43: 11.380,
+  57: 20.240,
 };
 
 export function getUnitWeight(diameter: RebarDiameter): number {
-  return STANDARD_UNIT_WEIGHTS[diameter] ?? calculateUnitWeight(diameter);
+  return profileUnitWeight(diameter) ?? STANDARD_UNIT_WEIGHTS[diameter] ?? calculateUnitWeight(diameter);
 }
 
 /**

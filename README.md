@@ -9,10 +9,12 @@ Bar Bending Schedules and cutting-stock optimization for civil engineers. Runs e
 ## Features
 
 **Schedule**
-- IS 2502 / SP 34 and BS 8666 shape codes, member wizards, section templates, custom shapes
+- IS 2502 / SP 34, BS 8666, **ACI 318-19** and **AS 3600:2018** profiles (AS bend/hook/cover tables are user-entered, never guessed; exports are blocked until supplied),  member wizards, section templates, custom shapes
 - Per-bar **Show calculation** (inputs, formula, hooks, bend deductions, weight)
 - CSV export, CSV import and paste from Excel (mm or m)
-- **DXF export** (AutoCAD-compatible schedule table with schematic bar sketches)
+- **DXF export**: AutoCAD-compatible schedule with to-scale, dimensioned bar sketches (per-row scale label)
+- **Mobile-friendly**: card view for bars, tap menus, no horizontal page scroll
+- ACI/AS rules are data-driven: edit `src/data/codeProfiles.ts` (see `docs/ACI318_AS3600_BBS_Rules.md`); items marked VERIFY need engineer confirmation
 - Revision history with diff and restore
 
 **Site & procurement**
@@ -52,5 +54,5 @@ Pushes to `main` deploy to GitHub Pages via GitHub Actions (**Settings → Pages
 
 ## Roadmap
 
-- ACI 318 and AS 3600 shape/hook/lap rules (pending verified code tables)
-- Dimensioned, to-scale DXF bar sketches; Revit export
+- Revit export
+- Verified AS 3600 tables

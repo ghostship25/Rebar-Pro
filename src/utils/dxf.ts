@@ -1,26 +1,11 @@
-import { BarItem, ProjectData, ShapeCode } from '../types/bbs';
+import { BarItem, ProjectData } from '../types/bbs';
+import { buildBarSketch, sketchBounds, BarSketch, Pt } from './dxfShapes';
 
 /**
  * ASCII DXF (AutoCAD R12 / AC1009) export of the bar bending schedule as a drawing
- * table with a schematic shape sketch per bar. Units: millimetres, 1 drawing unit = 1 mm.
- * Sketches are schematic (not to scale); the dimensions are given in the A-F columns.
+ * table with a to-scale, dimensioned shape sketch per bar (one uniform scale per bar, stated
+ * per row). Units: millimetres, 1 drawing unit = 1 mm. Dimension labels show true values.
  */
-
-type Pt = [number, number];
-
-// Schematic shapes on an 80 x 40 grid (y up). Mirrors MiniRebarSvg.
-const SHAPES: Partial<Record<ShapeCode, Pt[][]>> = {
-  '00': [[[10, 20], [70, 20]]],
-  '11': [[[12, 10], [68, 10], [68, 30]]],
-  '21': [[[14, 30], [14, 10], [66, 10], [66, 30]]],
-  '51': [[[18, 32], [62, 32], [62, 8], [18, 8], [18, 32]]],
-  '41': [[[8, 12], [24, 12], [36, 28], [52, 28], [64, 12], [72, 12]]],
-  '31': [[[10, 8], [24, 8], [24, 28], [56, 28], [56, 8], [70, 8]]],
-  '71': [[[16, 10], [16, 28], [64, 28], [64, 10]]],
-  '61': [[[18, 30], [18, 18], [62, 18], [62, 6]]],
-  '81': [[[40, 34], [66, 20], [40, 6], [14, 20], [40, 34]]],
-  '99': [[[10, 12], [30, 12], [45, 28], [68, 22]]],
-};
 
 function clean(value: unknown): string {
   return String(value ?? '')
@@ -69,8 +54,8 @@ const COLUMNS: { title: string; width: number }[] = [
   { title: 'BAR MARK', width: 34 },
   { title: 'MEMBER / DESCRIPTION', width: 90 },
   { title: 'DIA', width: 16 },
-  { title: 'SHAPE', width: 14 },
-  { title: 'SKETCH', width: 52 },
+  { title: 'SHAPE', width: 22 },
+  { title: 'SKETCH (DIMS IN mm)', width: 130 },
   { title: 'NOS', width: 18 },
   { title: 'A (m)', width: 20 },
   { title: 'B (m)', width: 20 },
@@ -80,9 +65,23 @@ const COLUMNS: { title: string; width: number }[] = [
   { title: 'WT (kg)', width: 26 },
 ];
 
-const ROW_H = 30;
+const ROW_H = 60;
 const HEAD_H = 12;
 const TEXT_H = 3.5;
+const DIM_H = 2.2;
+const DIM_OFF = 5;
+const SCALES = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500];
+// Sketch drawing area inside the SKETCH cell (leaves room for dimension lines and labels)
+const SK_L = 16, SK_R = 16, SK_B = 15, SK_T = 10;
+const SK_W = 130 - SK_L - SK_R;
+const SK_H = ROW_H - SK_B - SK_T;
+
+function pickScale(w: number, h: number): number {
+  for (const n of SCALES) if (w / n <= SK_W && h / n <= SK_H) return n;
+  let n = 1000;
+  while ((w / n > SK_W || h / n > SK_H) && n < 1e9) n *= 2;
+  return n;
+}
 
 export function barsToDxf(project: ProjectData): string {
   const dxf = new DxfWriter();
@@ -93,7 +92,7 @@ export function barsToDxf(project: ProjectData): string {
   const meta = project.metadata;
   dxf.text(0, 28, 7, `BAR BENDING SCHEDULE - ${meta.projectTitle || 'Project'}`, 'BBS_TEXT');
   dxf.text(0, 18, TEXT_H, `Drawing: ${meta.drawingNumber || '-'}   Rev: ${meta.revision || '-'}   Date: ${meta.date || '-'}`, 'BBS_TEXT');
-  dxf.text(0, 11, TEXT_H, 'Sketches are schematic and not to scale. Dimensions in metres; diameters in mm.', 'BBS_TEXT');
+  dxf.text(0, 11, TEXT_H, 'Sketches drawn to scale (scale stated per row); sketch dimensions in mm, table dimensions in metres, diameters in mm.', 'BBS_TEXT');
 
   // Header row
   let x = 0;
@@ -108,7 +107,7 @@ export function barsToDxf(project: ProjectData): string {
   let sumWt = 0;
   bars.forEach((bar) => {
     const rowBottom = y - ROW_H;
-    const base = rowBottom + 11;
+    const base = rowBottom + ROW_H / 2 - 1.5;
     const cells = [
       bar.barMark,
       `${bar.member}: ${bar.description}`,
@@ -126,7 +125,7 @@ export function barsToDxf(project: ProjectData): string {
     let cx = 0;
     cells.forEach((value, i) => {
       if (value) dxf.text(cx + 2, base, TEXT_H, i === 1 ? value.slice(0, 40) : value, 'BBS_TEXT');
-      if (i === 4) drawSketch(dxf, bar.shapeCode, cx + 6, rowBottom + 5, 40 / 80);
+      if (i === 4) drawSketch(dxf, bar, cx, rowBottom);
       cx += COLUMNS[i].width;
     });
     dxf.line(0, rowBottom, totalW, rowBottom, 'BBS_TABLE');
@@ -139,18 +138,69 @@ export function barsToDxf(project: ProjectData): string {
   [0, ...COLUMNS.map((c) => (vx += c.width))].forEach((xx) => dxf.line(xx, tableTop, xx, y, 'BBS_TABLE'));
   dxf.text(totalW - 90, y - 10, 5, `TOTAL WEIGHT: ${sumWt.toFixed(2)} kg`, 'BBS_TEXT');
 
-  return dxf.build(['BBS_TABLE', 'BBS_TEXT', 'BBS_REBAR']);
+  return dxf.build(['BBS_TABLE', 'BBS_TEXT', 'BBS_REBAR', 'BBS_DIM']);
 }
 
 function f2(n?: number): string {
   return n !== undefined && Number.isFinite(n) && n > 0 ? n.toFixed(3) : '';
 }
 
-function drawSketch(dxf: DxfWriter, code: ShapeCode, ox: number, oy: number, scale: number) {
-  if (code === '77') {
-    dxf.circle(ox + 40 * scale, oy + 20 * scale, 14 * scale, 'BBS_REBAR');
-    return;
+function drawSketch(dxf: DxfWriter, bar: BarItem, cellX: number, rowBottom: number) {
+  const sk: BarSketch = buildBarSketch(bar);
+  const b = sketchBounds(sk);
+  const w = b.maxX - b.minX;
+  const h = b.maxY - b.minY;
+  const n = pickScale(w, h);
+  const ox = cellX + SK_L + (SK_W - w / n) / 2;
+  const oy = rowBottom + SK_B + (SK_H - h / n) / 2;
+  const T = ([x, y]: Pt): Pt => [ox + (x - b.minX) / n, oy + (y - b.minY) / n];
+  const centre: Pt = [ox + w / n / 2, oy + h / n / 2];
+
+  sk.paths.forEach((p) => dxf.polyline(p.map(T), 'BBS_REBAR'));
+  if (sk.circle) {
+    const c = T(sk.circle.c);
+    dxf.circle(c[0], c[1], sk.circle.r / n, 'BBS_REBAR');
   }
-  const paths = SHAPES[code] ?? SHAPES['00']!;
-  paths.forEach((p) => dxf.polyline(p.map(([px, py]) => [ox + px * scale, oy + py * scale] as Pt), 'BBS_REBAR'));
+  sk.dims.forEach((d) => drawDim(dxf, T(d.p1), T(d.p2), d.label, d.side, centre));
+
+  const info = [`Sketch scale 1:${n}`, ...sk.notes].join(' | ');
+  dxf.text(cellX + 2, rowBottom + 1.5, DIM_H, info.slice(0, 70), 'BBS_DIM');
+}
+
+function drawDim(dxf: DxfWriter, p1: Pt, p2: Pt, label: string, side: Pt | undefined, centre: Pt) {
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  const len = Math.hypot(dx, dy);
+  let n: Pt;
+  if (side && Math.hypot(side[0], side[1]) > 0) {
+    const sl = Math.hypot(side[0], side[1]);
+    n = [side[0] / sl, side[1] / sl];
+  } else if (len > 1e-6) {
+    n = [-dy / len, dx / len];
+    const mx = (p1[0] + p2[0]) / 2 - centre[0];
+    const my = (p1[1] + p2[1]) / 2 - centre[1];
+    if (n[0] * mx + n[1] * my < 0) n = [-n[0], -n[1]];
+  } else {
+    n = [0, -1];
+  }
+  const q1: Pt = [p1[0] + n[0] * DIM_OFF, p1[1] + n[1] * DIM_OFF];
+  const q2: Pt = [p2[0] + n[0] * DIM_OFF, p2[1] + n[1] * DIM_OFF];
+  const mid: Pt = [(q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2];
+
+  if (len > 1e-6) {
+    const ux = dx / len, uy = dy / len;
+    dxf.line(q1[0], q1[1], q2[0], q2[1], 'BBS_DIM');
+    // extension lines
+    [[p1, q1], [p2, q2]].forEach(([p, q]) => {
+      dxf.line(p[0] + n[0] * 1, p[1] + n[1] * 1, q[0] + n[0] * 1.2, q[1] + n[1] * 1.2, 'BBS_DIM');
+    });
+    // 45-degree tick marks
+    const tx = (ux + n[0]) * 0.8, ty = (uy + n[1]) * 0.8;
+    [q1, q2].forEach((q) => dxf.line(q[0] - tx, q[1] - ty, q[0] + tx, q[1] + ty, 'BBS_DIM'));
+  }
+  const tw = label.length * DIM_H * 0.8;
+  const extent = Math.abs(n[0]) * tw / 2 + Math.abs(n[1]) * DIM_H / 2 + 0.8;
+  const cx = mid[0] + n[0] * extent;
+  const cy = mid[1] + n[1] * extent;
+  dxf.text(cx - tw / 2, cy - DIM_H / 2, DIM_H, label, 'BBS_DIM');
 }

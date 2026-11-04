@@ -1,3 +1,5 @@
+import { codeAssumptions } from '../utils/codeRules';
+import { DISCLAIMER } from '../data/codeProfiles';
 import React from 'react';
 import { ProjectData } from '../types/bbs';
 import { computeSteelAbstract } from '../utils/optimizer';
@@ -75,7 +77,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
                 {project.metadata.projectTitle}
               </h1>
               <div className="text-xs font-medium text-slate-700 mt-1">
-                Standard: <strong className="text-slate-900">{project.metadata.standard}</strong> · Code Compliance: IS 456, IS 1786, SP 34 & BS 8666:2020
+                Standard: <strong className="text-slate-900">{project.metadata.standard}</strong>
               </div>
               {project.metadata.reportHeaderNote && (
                 <div className="text-[11px] text-slate-700 mt-1 whitespace-pre-line">{project.metadata.reportHeaderNote}</div>
@@ -256,6 +258,13 @@ export const PrintReport: React.FC<PrintReportProps> = ({ project, onClose }) =>
               * Note: Commercial bars are supplied in 12.000m lengths. Cutting optimization should follow the Bar Bending Schedule to restrict unrecoverable scrap below {project.metadata.wastagePercent}%.
             </div>
           </div>
+        </div>
+
+        <div className="text-[9px] text-slate-600 mb-3 space-y-0.5">
+          {codeAssumptions(project.metadata).map((line) => (
+            <div key={line}>{line}</div>
+          ))}
+          <div className="italic">{DISCLAIMER}</div>
         </div>
 
         {project.metadata.reportFooterNote && (

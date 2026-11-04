@@ -1,15 +1,18 @@
 import React from 'react';
-import { BarItem } from '../types/bbs';
+import { BarItem, DesignStandard, CodeSettings } from '../types/bbs';
+import { auditCodeCompliance } from '../utils/codeRules';
 import { auditBbsSchedule } from '../utils/engineering';
 import { AlertTriangle, AlertOctagon, CheckCircle2, ChevronRight } from 'lucide-react';
 
 interface AuditAlertsProps {
   bars: BarItem[];
   onSelectBar: (barId: string) => void;
+  standard?: DesignStandard;
+  codeSettings?: CodeSettings;
 }
 
-export const AuditAlerts: React.FC<AuditAlertsProps> = ({ bars, onSelectBar }) => {
-  const issues = auditBbsSchedule(bars);
+export const AuditAlerts: React.FC<AuditAlertsProps> = ({ bars, onSelectBar, standard = 'IS 2502 / SP 34', codeSettings }) => {
+  const issues = [...auditBbsSchedule(bars), ...auditCodeCompliance(bars, { standard, codeSettings })];
 
   if (issues.length === 0) {
     return (
@@ -17,7 +20,7 @@ export const AuditAlerts: React.FC<AuditAlertsProps> = ({ bars, onSelectBar }) =
         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
         <div>
           <span className="font-semibold text-emerald-200">Engineering Schedule Audit Passed: </span>
-          All bar marks comply with IS 2502:1963 / BS 8666 standards. All cutting lengths within 12.0m commercial mill supply limit and valid geometry.
+          No issues found by the automated checks for the selected standard ({standard}); these checks are not a substitute for engineer review. All cutting lengths within 12.0m commercial mill supply limit and valid geometry.
         </div>
       </div>
     );

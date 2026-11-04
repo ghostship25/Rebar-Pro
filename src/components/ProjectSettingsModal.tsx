@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ProjectMetadata, DesignStandard } from '../types/bbs';
+import { ProjectMetadata, DesignStandard, CodeSettings } from '../types/bbs';
+import { PROFILES, STANDARD_OPTIONS } from '../data/codeProfiles';
 import { X, Check, Settings2 } from 'lucide-react';
 
 interface ProjectSettingsModalProps {
@@ -51,6 +52,21 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const handleChange = (field: keyof ProjectMetadata, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const profile = PROFILES[formData.standard] ?? PROFILES['IS 2502 / SP 34'];
+  const cs: CodeSettings = formData.codeSettings ?? {};
+  const setCs = (key: keyof CodeSettings, value: number | boolean | string | undefined) =>
+    setFormData((prev) => ({ ...prev, codeSettings: { ...(prev.codeSettings ?? {}), [key]: value } }));
+  const numOrUndef = (v: string) => (v === '' ? undefined : Math.max(0, parseFloat(v) || 0));
+  const inputCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 font-mono text-right focus:outline-none focus:border-cyan-500';
+  const manual = (key: keyof CodeSettings, label: string, missing: boolean) => (
+    <div key={key}>
+      <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">
+        {label} {missing && <span className="text-amber-600 dark:text-amber-400">(required)</span>}
+      </label>
+      <input type="number" step="0.5" min="0" value={(cs[key] as number | undefined) ?? ''} placeholder="x db" onChange={(e) => setCs(key, numOrUndef(e.target.value))} className={inputCls} />
+    </div>
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,9 +187,9 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                 onChange={(e) => handleChange('standard', e.target.value as DesignStandard)}
                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-cyan-500"
               >
-                <option value="IS 2502 / SP 34">IS 2502:1963 / SP 34</option>
-                <option value="BS 8666:2020">BS 8666:2020</option>
-                <option value="IRC:112">IRC:112 (Bridges & Culverts)</option>
+                {STANDARD_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -201,6 +217,88 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               />
             </div>
           </div>
+
+          {profile.family !== 'legacy' && (
+            <div className="border border-cyan-300 dark:border-cyan-900 rounded-lg p-3 space-y-3 bg-cyan-50/40 dark:bg-cyan-950/20">
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-slate-200">{profile.name} code rules</h4>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                  Constants live in <code>src/data/codeProfiles.ts</code> (see <code>docs/ACI318_AS3600_BBS_Rules.md</code>). Items marked VERIFY must be confirmed against the edition you cite. Changing the standard recalculates all bars.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">fy (MPa)</label>
+                  <input type="number" min="0" value={cs.fy ?? profile.defaults.fy} onChange={(e) => setCs('fy', numOrUndef(e.target.value))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">f'c (MPa)</label>
+                  <input type="number" min="0" value={cs.fc ?? profile.defaults.fc} onChange={(e) => setCs('fc', numOrUndef(e.target.value))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Round cut up to</label>
+                  <select value={cs.roundUpMm ?? 5} onChange={(e) => setCs('roundUpMm', parseInt(e.target.value, 10))} className={inputCls}>
+                    <option value={0}>Off</option>
+                    <option value={5}>5 mm</option>
+                    <option value={10}>10 mm</option>
+                  </select>
+                </div>
+                {profile.family === 'ACI' && profile.cover.value && (
+                  <div>
+                    <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Cover exposure</label>
+                    <select value={cs.coverExposure ?? profile.cover.value[0].key} onChange={(e) => setCs('coverExposure', e.target.value)} className={inputCls}>
+                      {profile.cover.value.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-4 text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!cs.topBar} onChange={(e) => setCs('topBar', e.target.checked)} /> Top bars (&gt;300 mm concrete below)</label>
+                <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!cs.epoxyCoated} onChange={(e) => setCs('epoxyCoated', e.target.checked)} /> Epoxy-coated</label>
+                {profile.family === 'ACI' && (
+                  <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!cs.aciFavourable} onChange={(e) => setCs('aciFavourable', e.target.checked)} /> Favourable spacing/cover with ties</label>
+                )}
+              </div>
+              {profile.family === 'ACI' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">As provided / required</label>
+                    <input type="number" step="0.1" min="1" value={cs.aciAsRatio ?? 1} onChange={(e) => setCs('aciAsRatio', numOrUndef(e.target.value))} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">% spliced in lap length</label>
+                    <input type="number" min="0" max="100" value={cs.percentSpliced ?? 100} onChange={(e) => setCs('percentSpliced', numOrUndef(e.target.value))} className={inputCls} />
+                  </div>
+                </div>
+              )}
+              {profile.family === 'AS' && (
+                <>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    AS 3600 tables are not loaded (LOAD-FROM-STANDARD). Enter the values from your licensed copy; exports are blocked until the ones marked required are filled.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {manual('manualBendMain', 'Main bar bend D', !cs.manualBendMain)}
+                    {manual('manualBendFitment', 'Fitment bend D', !cs.manualBendFitment)}
+                    {manual('manualExt90', '90° ext.', !cs.manualExt90)}
+                    {manual('manualExt135', '135° fitment ext.', !cs.manualExt135)}
+                    {manual('manualExt180', '180° ext.', false)}
+                    <div>
+                      <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Lap factor k7</label>
+                      <input type="number" step="0.05" min="0" value={cs.asK7 ?? ''} placeholder="1.25 / 1.5" onChange={(e) => setCs('asK7', numOrUndef(e.target.value))} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">cd (mm)</label>
+                      <input type="number" min="0" value={cs.asCd ?? ''} placeholder="optional" onChange={(e) => setCs('asCd', numOrUndef(e.target.value))} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Cover (mm)</label>
+                      <input type="number" min="0" value={cs.manualCoverMm ?? ''} onChange={(e) => setCs('manualCoverMm', numOrUndef(e.target.value))} className={inputCls} />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">

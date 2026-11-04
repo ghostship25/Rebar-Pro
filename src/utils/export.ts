@@ -2,6 +2,8 @@ import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ProjectData, ShapeCode, STANDARD_DIAMETERS } from '../types/bbs';
+import { codeAssumptions } from './codeRules';
+import { DISCLAIMER } from '../data/codeProfiles';
 import { computeSteelAbstract, optimizeAllDiameters } from './optimizer';
 
 // ---------------------------------------------------------------------------
@@ -347,6 +349,12 @@ export async function exportToExcel(project: ProjectData): Promise<void> {
     { width: 12 }, { width: 14 }, { width: 55 }, { width: 14 }, { width: 18 }, { width: 22 }, { width: 16 },
   ];
 
+  const wsBasis = wb.addWorksheet('Code Basis', { views: [{ showGridLines: false }] });
+  wsBasis.columns = [{ width: 120 }];
+  [`Standard: ${project.metadata.standard}`, ...codeAssumptions(project.metadata), DISCLAIMER].forEach((line) => {
+    wsBasis.addRow([line]);
+  });
+
   // -------------------------------------------------------------
   // Download
   // -------------------------------------------------------------
@@ -509,6 +517,17 @@ export function exportToPdf(project: ProjectData): void {
     );
   }
 
+  {
+    const y0 = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60) + 16;
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    const lines = [...codeAssumptions(project.metadata), DISCLAIMER];
+    const startY = y0 + lines.length * 3.5 > pageH - 6 ? (doc.addPage(), 14) : y0;
+    lines.forEach((line, i) => doc.text(line, margin, startY + i * 3.5));
+  }
+
   const cleanTitle = project.metadata.projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
   doc.save(`${cleanTitle}_BBS_Report.pdf`);
 }
@@ -575,6 +594,25 @@ export function loadProjectFromJson(file: File): Promise<ProjectData> {
           }
         }
         parsed.actualConsumptionKg = act;
+        if (!['IS 2502 / SP 34', 'BS 8666:2020', 'IRC:112', 'ACI 318-19', 'AS 3600:2018'].includes(String(meta.standard))) {
+          meta.standard = 'IS 2502 / SP 34';
+        }
+        const rawCs = meta.codeSettings;
+        if (rawCs && typeof rawCs === 'object') {
+          const cs: Record<string, unknown> = {};
+          for (const k of ['fy', 'fc', 'aciAsRatio', 'percentSpliced', 'asCd', 'asK7', 'roundUpMm', 'manualBendMain', 'manualBendFitment', 'manualExt90', 'manualExt135', 'manualExt180', 'manualCoverMm']) {
+            const n = Number((rawCs as Record<string, unknown>)[k]);
+            if ((rawCs as Record<string, unknown>)[k] !== undefined && Number.isFinite(n) && n >= 0 && n < 100000) cs[k] = n;
+          }
+          for (const k of ['topBar', 'epoxyCoated', 'aciFavourable']) {
+            if (typeof (rawCs as Record<string, unknown>)[k] === 'boolean') cs[k] = (rawCs as Record<string, unknown>)[k];
+          }
+          const exp = (rawCs as Record<string, unknown>).coverExposure;
+          if (typeof exp === 'string' && /^[a-z-]{1,40}$/.test(exp)) cs.coverExposure = exp;
+          meta.codeSettings = cs;
+        } else {
+          delete meta.codeSettings;
+        }
         for (const k of ['bindingWireRateKgPerMT', 'wastagePercent', 'steelRatePerKg']) {
           const n = Number(meta[k]);
           meta[k] = Number.isFinite(n) && n >= 0 ? n : 0;

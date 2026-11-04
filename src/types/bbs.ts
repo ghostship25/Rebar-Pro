@@ -1,7 +1,7 @@
 /**
  * Standard rebar nominal diameters (mm) according to IS 1786 / BS 4449
  */
-export const STANDARD_DIAMETERS = [6, 8, 10, 12, 16, 20, 25, 28, 32, 36, 40] as const;
+export const STANDARD_DIAMETERS = [6, 8, 10, 12, 13, 16, 19, 20, 22, 24, 25, 28, 29, 32, 36, 40, 43, 57] as const;
 export type RebarDiameter = typeof STANDARD_DIAMETERS[number];
 
 export const MAX_REVISIONS = 20;
@@ -164,7 +164,37 @@ export interface BarItem {
   remarks?: string;
 }
 
-export type DesignStandard = 'IS 2502 / SP 34' | 'BS 8666:2020' | 'IRC:112';
+export type DesignStandard = 'IS 2502 / SP 34' | 'BS 8666:2020' | 'IRC:112' | 'ACI 318-19' | 'AS 3600:2018';
+
+/** Inputs for the ACI 318 / AS 3600 profiles. See docs/ACI318_AS3600_BBS_Rules.md. */
+export interface CodeSettings {
+  fy?: number; // MPa
+  fc?: number; // MPa, f'c
+  /** Horizontal bars with more than 300 mm of fresh concrete below (psi_t / k1). */
+  topBar?: boolean;
+  epoxyCoated?: boolean;
+  /** ACI: favourable spacing/cover with minimum ties (simplified development table). */
+  aciFavourable?: boolean;
+  /** ACI: As,provided / As,required at the splice. */
+  aciAsRatio?: number;
+  /** ACI: percentage of bars spliced within the lap length. */
+  percentSpliced?: number;
+  /** AS: smaller of cover to bar or half the clear spacing (mm). */
+  asCd?: number;
+  /** AS: lap factor k7 (LOAD-FROM-STANDARD, Cl 13.2). */
+  asK7?: number;
+  /** Round cut lengths up to this many mm (0 = off). */
+  roundUpMm?: number;
+  /** Manual overrides for LOAD-FROM-STANDARD values; multiples of bar diameter. */
+  manualBendMain?: number;
+  manualBendFitment?: number;
+  manualExt90?: number;
+  manualExt135?: number;
+  manualExt180?: number;
+  /** Cover exposure (ACI key) and manually entered cover (mm). */
+  coverExposure?: string;
+  manualCoverMm?: number;
+}
 
 export interface ProjectMetadata {
   id: string;
@@ -177,6 +207,7 @@ export interface ProjectMetadata {
   revision: string;
   date: string;
   standard: DesignStandard;
+  codeSettings?: CodeSettings;
   wastagePercent: number; // default 3.5%
   bindingWireRateKgPerMT: number; // default 9.0 kg / MT
   /** Steel purchase rate per kg, in `currency`. Omitted/0 hides cost figures. */

@@ -6,6 +6,8 @@ import { Scissors, Layers, Percent, Package, Recycle, Trash2, Plus, Save, Trophy
 
 interface CuttingOptimizerProps {
   bars: BarItem[];
+  /** Offer the lap length of the active ACI / AS profile. */
+  codeLapLabel?: string;
 }
 
 const STOCK_PRESETS = [6, 9, 10, 12];
@@ -38,7 +40,7 @@ function loadInventory(): OffcutItem[] {
   }
 }
 
-export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
+export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars, codeLapLabel }) => {
   const [stockLength, setStockLength] = useState<number>(STOCK_BAR_LENGTH);
   const [strategy, setStrategy] = useState<OptimizationStrategy>('MULTI_START');
   const [minReusable, setMinReusable] = useState<number>(1.0);
@@ -236,6 +238,7 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
               <option value={45}>45d</option>
               <option value={50}>50d</option>
               <option value={60}>60d</option>
+              {codeLapLabel && <option value={-1}>{codeLapLabel}</option>}
             </select>
           </label>
 
@@ -272,9 +275,9 @@ export const CuttingOptimizer: React.FC<CuttingOptimizerProps> = ({ bars }) => {
             “Unplanned” = first-fit in schedule order with no sorting or offcut reuse. Figures cover {structureFilter === 'ALL' ? 'all structures' : structureFilter}.
           </p>
 
-          {lapFactor > 0 && totals.lapJoints > 0 && (
+          {lapFactor !== 0 && totals.lapJoints > 0 && (
             <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
-              Lap splicing created {totals.lapJoints} joint(s) at {lapFactor}d, adding {totals.lapExtraM.toFixed(2)} m of steel
+              Lap splicing created {totals.lapJoints} joint(s) at {lapFactor > 0 ? `${lapFactor}d` : 'the code lap length'}, adding {totals.lapExtraM.toFixed(2)} m of steel
               ({(totals.lapExtraKg).toFixed(0)} kg) beyond the BBS. Confirm splice locations with the structural engineer — laps are not
               added to the BBS quantities.
             </div>

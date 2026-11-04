@@ -27,6 +27,9 @@ import { ShapeInspectorModal } from './components/ShapeInspectorModal';
 import { PrintReport } from './components/PrintReport';
 import { FieldSheets } from './components/FieldSheets';
 import { CsvImportModal } from './components/CsvImportModal';
+import { setActiveCodeContext, getMissingCodeData, isCodeEngineActive, getActiveProfile } from './utils/codeRules';
+import { recalculateBar } from './utils/recalc';
+import { CodeRulesPanel } from './components/CodeRulesPanel';
 import { barsToDxf } from './utils/dxf';
 import { barsToCsv } from './utils/csv';
 import { CalcBreakdownModal } from './components/CalcBreakdownModal';
@@ -134,6 +137,18 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShapeInspectorOpen, setIsShapeInspectorOpen] = useState(false);
   const [inspectingBar, setInspectingBar] = useState<BarItem | null>(null);
+  // Calculators read the active code profile; set it before any child renders.
+  setActiveCodeContext(project.metadata.standard, project.metadata.codeSettings);
+
+  const [openMenu, setOpenMenu] = useState<'presets' | 'export' | null>(null);
+  useEffect(() => {
+    if (!openMenu) return;
+    const close = () => setOpenMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openMenu]);
+  const menuCls = (name: 'presets' | 'export') => (openMenu === name ? 'block' : 'hidden group-hover:block');
+
   const [isPrintViewOpen, setIsPrintViewOpen] = useState(false);
   const [isFieldSheetsOpen, setIsFieldSheetsOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
@@ -329,6 +344,7 @@ export default function App() {
       showToast('Add at least one bar before exporting.');
       return;
     }
+    if (exportBlocked()) return;
     setIsExportingExcel(true);
     try {
       await exportToExcel(project);
@@ -346,6 +362,7 @@ export default function App() {
       showToast('Add at least one bar before exporting.');
       return;
     }
+    if (exportBlocked()) return;
     try {
       exportToPdf(project);
       showToast('PDF report downloaded.');
@@ -391,6 +408,7 @@ export default function App() {
       showToast('Add at least one bar before exporting.');
       return;
     }
+    if (exportBlocked()) return;
     const blob = new Blob([barsToCsv(project.bars)], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -408,6 +426,7 @@ export default function App() {
       showToast('Add at least one bar before exporting.');
       return;
     }
+    if (exportBlocked()) return;
     const blob = new Blob([barsToDxf(project)], { type: 'application/dxf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -469,11 +488,30 @@ export default function App() {
   };
 
   const handleUpdateMetadata = (updates: Partial<ProjectMetadata>) => {
+    const codeChanged =
+      ('standard' in updates && updates.standard !== project.metadata.standard) ||
+      ('codeSettings' in updates && JSON.stringify(updates.codeSettings) !== JSON.stringify(project.metadata.codeSettings));
+    const previous = project;
+    if (codeChanged) {
+      const nextMeta = { ...project.metadata, ...updates };
+      setActiveCodeContext(nextMeta.standard, nextMeta.codeSettings);
+      setProject({ ...project, metadata: nextMeta, bars: project.bars.map(recalculateBar) });
+      showToast(`Specifications updated; all bars recalculated for ${nextMeta.standard}.`, () => setProject(previous));
+      return;
+    }
     setProject((prev) => ({
       ...prev,
       metadata: { ...prev.metadata, ...updates },
     }));
     showToast('Project metadata & specifications updated');
+  };
+
+  /** Blocks final exports while LOAD-FROM-STANDARD values the schedule needs are missing. */
+  const exportBlocked = (): boolean => {
+    const missing = getMissingCodeData(project.bars, project.metadata);
+    if (missing.length === 0) return false;
+    showToast(`Missing code data: ${missing[0]}${missing.length > 1 ? ` (+${missing.length - 1} more)` : ''}. Enter it in Project Settings.`);
+    return true;
   };
 
   // Structures update handler
@@ -614,7 +652,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-50 selection:dark:text-slate-950 transition-colors duration-200">
       {/* Toast Alert */}
       {notification && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-white dark:bg-slate-900 border border-cyan-500/50 text-cyan-700 dark:text-cyan-300 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-5 sm:right-5 z-50 flex items-center gap-3 bg-white dark:bg-slate-900 border border-cyan-500/50 text-cyan-700 dark:text-cyan-300 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium animate-in fade-in slide-in-from-bottom-2">
           <CheckCircle className="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0" />
           <span>{notification.message}</span>
           {notification.undo && (
@@ -645,7 +683,7 @@ export default function App() {
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/90 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Logo & Project Title */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-lg bg-linear-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-lg shadow-md shrink-0">
               RP
             </div>
@@ -658,7 +696,7 @@ export default function App() {
                   {project.metadata.standard}
                 </span>
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 truncate max-w-md">
+              <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 truncate max-w-[calc(100vw-5rem)] md:max-w-md">
                 <span className="truncate">{project.metadata.projectTitle}</span>
                 <span>·</span>
                 <span className="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
@@ -706,8 +744,12 @@ export default function App() {
 
             {/* Project Presets Switcher Dropdown */}
             <div className="relative group">
-              <IconButton icon={<FolderOpen className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />} label="Load Example Project" />
-              <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1 hidden group-hover:block z-50 text-xs">
+              <IconButton
+                icon={<FolderOpen className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />}
+                label="Load Example Project"
+                onClick={() => setOpenMenu((m) => (m === 'presets' ? null : 'presets'))}
+              />
+              <div className={`absolute right-0 mt-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1 ${menuCls('presets')} z-50 text-xs`}>
                 <div className="px-3 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Civil Engineering Reference Presets
                 </div>
@@ -764,12 +806,15 @@ export default function App() {
             <div className="relative group">
               <button
                 type="button"
+                onClick={() => setOpenMenu((m) => (m === 'export' ? null : 'export'))}
+                aria-haspopup="menu"
+                aria-expanded={openMenu === 'export'}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors shadow-sm cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">Export</span>
               </button>
-              <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1.5 hidden group-hover:block z-50 text-xs">
+              <div className={`absolute right-0 mt-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1.5 ${menuCls('export')} z-50 text-xs max-h-[70vh] overflow-y-auto`}>
                 <button
                   type="button"
                   onClick={handleExportExcel}
@@ -952,6 +997,8 @@ export default function App() {
             {project.bars.length > 0 && (
               <AuditAlerts
                 bars={project.bars}
+                standard={project.metadata.standard}
+                codeSettings={project.metadata.codeSettings}
                 onSelectBar={(barId) => {
                   const targetBar = project.bars.find((b) => b.id === barId);
                   if (targetBar) {
@@ -1015,7 +1062,7 @@ export default function App() {
         )}
 
         {/* 12m Commercial Bar Optimizer Tab */}
-        {activeTab === 'optimizer' && <CuttingOptimizer bars={project.bars} />}
+        {activeTab === 'optimizer' && <CuttingOptimizer bars={project.bars} codeLapLabel={isCodeEngineActive() ? `Code lap (${getActiveProfile().name})` : undefined} />}
 
         {/* Shape Library Tab */}
         {activeTab === 'shapes' && (
@@ -1023,7 +1070,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div>
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  Standard Rebar Shape Code Reference (IS 2502:1963 / BS 8666:2020)
+                  Rebar Shape Code Reference ({project.metadata.standard})
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Bend deductions, hook encroachments, arbitrary angle turn calculations, and mathematical formula derivations.
@@ -1050,6 +1097,8 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            <CodeRulesPanel standard={project.metadata.standard} settings={project.metadata.codeSettings} />
 
             {/* Overview of Bend Deductions Card */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">

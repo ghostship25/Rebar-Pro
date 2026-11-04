@@ -1,5 +1,6 @@
 import { ShapeCode, RebarDiameter, CustomSegment, CustomHook } from '../types/bbs';
 import { getSeismicHookExtensionMeters } from './engineering';
+import { profileCuttingLength } from './codeRules';
 import { resolveHookLength, buildCustomShapeGeometry } from './rebarGeometry';
 
 export interface ShapeDefinition {
@@ -164,6 +165,9 @@ export interface CuttingLengthResult {
   totalStraightLength: number;
   totalBendDeductions: number;
   hookExtensions: number;
+  /** ACI/AS profiles: LOAD-FROM-STANDARD values still missing. */
+  missingData?: string[];
+  codeNotes?: string[];
 }
 
 /**
@@ -189,6 +193,9 @@ export function calculateBarCuttingLength(
   let totalStraight = 0;
   let totalDeductions = 0;
   let hookExtensions = 0;
+
+  const profiled = profileCuttingLength(shapeCode, { A: dimA, B: dimB, C: dimC, D: dimD, E: dimE }, diameterMm);
+  if (profiled) return profiled;
 
   switch (shapeCode) {
     case '00': {

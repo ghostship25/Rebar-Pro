@@ -408,7 +408,17 @@ export const BbsTable: React.FC<BbsTableProps> = ({
       ) : (
         /* Populated Schedule Table */
         <div className="bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xl">
-          <div className="overflow-x-auto">
+          {/* Phone layout: one card per bar (the wide table is md and up) */}
+          <div className="md:hidden divide-y divide-slate-200 dark:divide-slate-800/60">
+            {filteredBars.map((bar, i) => renderBarCard(bar, i))}
+            <div className="flex justify-between px-4 py-3 text-xs font-bold bg-slate-100 dark:bg-slate-900/90">
+              <span>{filteredBars.length} bar marks</span>
+              <span className="font-mono text-amber-600 dark:text-amber-300">
+                {filteredBars.reduce((a, b) => a + b.totalWeight, 0).toFixed(2)} kg
+              </span>
+            </div>
+          </div>
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-100 dark:bg-slate-900/95 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase text-[11px] select-none">
                 <tr>
@@ -580,6 +590,68 @@ export const BbsTable: React.FC<BbsTableProps> = ({
       )}
     </div>
   );
+
+  function renderBarCard(bar: BarItem, idx: number) {
+    const isOversized = bar.cuttingLength > 12.0;
+    const dims = [['A', bar.dimA], ['B', bar.dimB], ['C', bar.dimC], ['D', bar.dimD], ['E', bar.dimE]].filter(
+      (d): d is [string, number] => typeof d[1] === 'number' && d[1] > 0
+    );
+    const iconBtn = 'p-2.5 rounded-lg text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 active:bg-slate-200 cursor-pointer';
+    return (
+      <div key={bar.id} className="p-3 space-y-2">
+        <div className="flex items-start gap-3">
+          <button type="button" onClick={() => onInspectCanvas(bar)} className="shrink-0" aria-label="View shape">
+            <MiniRebarSvg shapeCode={bar.shapeCode} className="w-16 h-8" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono font-bold text-cyan-600 dark:text-cyan-300">{bar.barMark}</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">T{bar.diameter}</span>
+              <span className="text-[10px] font-mono text-slate-500">#{bar.shapeCode}</span>
+            </div>
+            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{bar.description}</div>
+            <div className="text-[10px] text-slate-500 truncate">
+              {[bar.structureName, bar.component || bar.member].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+          <div className="text-right font-mono shrink-0">
+            <div className="text-sm font-bold text-amber-600 dark:text-amber-300">{bar.totalWeight.toFixed(2)} kg</div>
+            <div className="text-[10px] text-slate-500">{bar.totalBars} nos</div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-mono text-slate-600 dark:text-slate-400">
+          {dims.map(([k, v]) => (
+            <span key={k}>{k}={v.toFixed(3)}</span>
+          ))}
+          <span className={isOversized ? 'text-amber-600 font-bold' : 'text-cyan-600 dark:text-cyan-400 font-bold'}>
+            Cut {bar.cuttingLength.toFixed(3)} m{isOversized ? ' ⚠️' : ''}
+          </span>
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" onClick={() => onMoveBar(bar.id, 'up')} disabled={idx === 0} className={`${iconBtn} disabled:opacity-30`} aria-label="Move up">
+            <ArrowUp className="w-4 h-4" />
+          </button>
+          <button type="button" onClick={() => onMoveBar(bar.id, 'down')} disabled={idx === filteredBars.length - 1} className={`${iconBtn} disabled:opacity-30`} aria-label="Move down">
+            <ArrowDown className="w-4 h-4" />
+          </button>
+          {onShowCalc && (
+            <button type="button" onClick={() => onShowCalc(bar)} className={iconBtn} aria-label="Show calculation">
+              <Calculator className="w-4 h-4" />
+            </button>
+          )}
+          <button type="button" onClick={() => onEditBar(bar)} className={iconBtn} aria-label="Edit">
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button type="button" onClick={() => onDuplicateBar(bar.id)} className={iconBtn} aria-label="Duplicate">
+            <Copy className="w-4 h-4" />
+          </button>
+          <button type="button" onClick={() => onDeleteBar(bar.id)} className={`${iconBtn} text-rose-600 dark:text-rose-400`} aria-label="Delete">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   function renderBarRow(bar: BarItem, localIdx: number, globalIdx: number) {
     const isOversized = bar.cuttingLength > 12.0;
