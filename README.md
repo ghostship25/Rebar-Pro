@@ -26,6 +26,13 @@ npm run build
 npm run preview   # optional: preview the production build locally
 ```
 
+## GitHub Pages
+
+After GitHub Pages is enabled with **Settings → Pages → Build and deployment → GitHub Actions**,
+the site will be available at [ghostship25.github.io/Rebar-Pro](https://ghostship25.github.io/Rebar-Pro/).
+GitHub Actions deploys the site whenever changes are pushed to `main`. To publish manually,
+run the **Deploy to GitHub Pages** workflow from the Actions tab.
+
 ## Type-check
 
 ```bash
