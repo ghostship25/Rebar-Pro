@@ -1,52 +1,55 @@
 # REBAR-PRO — BBS & Cutting Optimizer
 
-A civil engineering command centre for preparing Bar Bending Schedules (BBS): rebar
-detailing to IS 2502 / BS 8666, structural member wizards, section templates, custom
-shape design, 1D cutting-stock optimization, and print-ready / Excel export.
+Bar Bending Schedules and cutting-stock optimization for civil engineers. Runs entirely in your browser — no backend, no account, no API key.
 
-This is a self-contained client-side app — no backend or API key required. All data is
-kept locally in your browser (`localStorage`); use **Export → Save Project File (.bbs)**
-to back up or share a project.
+**[Open the live app →](https://ghostship25.github.io/Rebar-Pro/)**
+
+![Bar bending schedule](docs/screenshot-schedule.png)
 
 ## Features
 
-- Bar bending schedule with IS 2502 / BS 8666 shapes, member wizards and section templates
-- **CSV export, and CSV import / paste from Excel** (dimensions in mm or m; cut lengths and weights auto-calculated)
-- **Yard tags and cut list**: printable bar-mark tags and a cut list grouped by diameter and cutting length
-- Steel abstract with wastage, binding wire and **steel cost** (rate per kg)
-- **Show calculation** per bar (calculator icon in the schedule): inputs, formula, hook additions, bend deductions, unit weight and total weight, with a warning if stored values are stale
-- **Revision history** (clock icon in the header): save snapshots when you issue the schedule, see added/removed/changed bars and the weight difference since, and restore (up to 20 revisions)
-- **Steel reconciliation** (Abstract tab): enter actual issued steel per diameter and compare it with the BBS and the wastage allowance
-- **Optimizer**: optional lap splicing for bars longer than stock (40d–60d, extra steel and joints reported) and a stock-length comparison (6/9/12 m + custom) showing which mill length needs the least steel
-- Reports with **company logo** and header/footer notes (set in Project Settings)
+**Schedule**
+- IS 2502 / SP 34 and BS 8666 shape codes, member wizards, section templates, custom shapes
+- Per-bar **Show calculation** (inputs, formula, hooks, bend deductions, weight)
+- CSV export, CSV import and paste from Excel (mm or m)
+- Revision history with diff and restore
 
-## Run locally
+**Site & procurement**
+- Printable bar-mark tags and yard cut list by diameter and cutting length
+- Steel abstract with wastage, binding wire and cost (rate per kg)
+- Steel reconciliation: actual issued steel vs BBS per diameter
+- Excel, PDF and print reports with company logo and header/footer notes
 
-**Prerequisites:** Node.js 18+
+![Steel abstract and reconciliation](docs/screenshot-abstract.png)
+
+**Optimizer**
+- 1D cutting-stock planner with offcut reuse and optional lap splicing (40d–60d)
+- Stock-length comparison (6 / 9 / 10 / 12 m) to find the least-steel option
+
+![Cutting optimizer](docs/screenshot-optimizer.png)
+
+## Quick start
+
+Requires Node.js 18+.
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:3000
+npm run build      # production build
+npm run lint       # type-check
 ```
 
-Then open the printed local URL (defaults to `http://localhost:3000`).
+## Privacy & security
 
-## Build for production
+- Data stays in your browser (`localStorage`). Use **Export → Save Project File (.bbs)** to back up or share.
+- No `eval`; custom formulas use a safe parser. Imports are size-limited and validated.
+- Production build ships a Content Security Policy; Dependabot keeps dependencies current.
 
-```bash
-npm run build
-npm run preview   # optional: preview the production build locally
-```
+## Deployment
 
-## GitHub Pages
+Pushes to `main` deploy to GitHub Pages via GitHub Actions (**Settings → Pages → Source: GitHub Actions**). You can also run the *Deploy to GitHub Pages* workflow manually.
 
-After GitHub Pages is enabled with **Settings → Pages → Build and deployment → GitHub Actions**,
-the site will be available at [ghostship25.github.io/Rebar-Pro](https://ghostship25.github.io/Rebar-Pro/).
-GitHub Actions deploys the site whenever changes are pushed to `main`. To publish manually,
-run the **Deploy to GitHub Pages** workflow from the Actions tab.
+## Roadmap
 
-## Type-check
-
-```bash
-npm run lint
-```
+- ACI 318 and AS 3600 shape/hook/lap rules (pending verified code tables)
+- DXF / Revit export
