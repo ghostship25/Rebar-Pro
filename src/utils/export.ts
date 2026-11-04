@@ -392,6 +392,21 @@ export function exportToPdf(project: ProjectData): void {
       margin,
       23.5
     );
+    if (project.metadata.reportHeaderNote) {
+      doc.setFontSize(7.5);
+      doc.text(project.metadata.reportHeaderNote.replace(/\s+/g, ' ').slice(0, 160), margin, 28);
+    }
+    const logo = project.metadata.logoDataUrl;
+    if (logo) {
+      try {
+        const props = doc.getImageProperties(logo);
+        const h = 14;
+        const w = Math.min(40, (props.width / props.height) * h);
+        doc.addImage(logo, props.fileType, pageWidth - margin - w, 6, w, h);
+      } catch {
+        // Ignore an unreadable logo rather than failing the whole export.
+      }
+    }
     doc.setDrawColor(203, 213, 225);
     doc.line(margin, 26, pageWidth - margin, 26);
   };
@@ -445,6 +460,9 @@ export function exportToPdf(project: ProjectData): void {
       doc.setFontSize(7.5);
       doc.setTextColor(148, 163, 184);
       doc.text(`Page ${doc.getCurrentPageInfo().pageNumber} of ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+      if (project.metadata.reportFooterNote) {
+        doc.text(project.metadata.reportFooterNote.replace(/\s+/g, ' ').slice(0, 200), margin, doc.internal.pageSize.getHeight() - 5);
+      }
     },
   });
 
@@ -476,6 +494,20 @@ export function exportToPdf(project: ProjectData): void {
     alternateRowStyles: { fillColor: [241, 245, 249] },
     columnStyles: { 0: { halign: 'center' } },
   });
+
+  const rate = Number(project.metadata.steelRatePerKg) || 0;
+  if (rate > 0) {
+    const finalY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60;
+    const cost = abstract.totalGrossWeightKg * rate;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(
+      `Estimated steel cost: ${project.metadata.currency || ''} ${cost.toLocaleString('en-US', { maximumFractionDigits: 0 })}  (${abstract.totalGrossWeightKg.toFixed(2)} kg gross @ ${rate}/kg)`,
+      margin,
+      finalY + 8
+    );
+  }
 
   const cleanTitle = project.metadata.projectTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
   doc.save(`${cleanTitle}_BBS_Report.pdf`);
